@@ -28,29 +28,28 @@ playersManage:{
 			local.player =  $player[local.i]
 			
 			//check if player just enetered server, do setup
-			if(!local.player.flags["newSpeciesToAssimilated"]){
+			if(local.player.flags["newSpeciesToAssimilated"] == NIL){
 				thread playerSetup local.player
-				continue
-			}
-			
-			if(local.player.health > 0){
-				if(local.player.dmteam == "spectator"){
-					waitthread manageSpectator local.player
-				}
-				if(local.player.flags["coop_respawning"] == 1){
-					thread playerRespawned local.player
-					continue
-				}
 			}else{
-				thread playerDead local.player
-				continue				
-			}
-			
-			//prevent this thread to be executed several times
-			//[203] chrissstrahl - fixing player name command detection
-			if(	level.time > (local.player.flags["coop_netnameChanged"] + (game.frame * 15))){
-				if(local.player.flags["coop_netname"] != local.player.netname || waitthread fov_mod/main.scr::containsText local.player.netname "," ){
-					thread manageNamechange local.player
+				if(local.player.health > 0){
+					if(local.player.dmteam == "spectator"){
+						waitthread manageSpectator local.player
+					}
+					if(local.player.flags["coop_respawning"] == 1){
+						thread playerRespawned local.player
+						continue
+					}
+				}else{
+					thread playerDead local.player
+					continue				
+				}
+				
+				//prevent this thread to be executed several times
+				//[203] chrissstrahl - fixing player name command detection
+				if(	level.time > (local.player.flags["coop_netnameChanged"] + (game.frame * 15))){
+					if(local.player.flags["coop_netname"] != local.player.netname || waitthread fov_mod/main.scr::containsText local.player.netname "," ){
+						thread manageNamechange local.player
+					}
 				}
 			}
 		}
@@ -62,18 +61,53 @@ playersManage:{
 //=========================================================================
 playerSetup local.player:{
 //=========================================================================
+	if(local.player.flags["newSpeciesToAssimilated"] ){ end }
+	
 	local.player.flags["newSpeciesToAssimilated"] = 1
 	local.player.flags["coop_netnameChanged"] = -1
 	local.player.flags["coop_respawning"] = 0
 	local.player.flags["lastTeam"] = ""
 	local.player.flags["coop_isActive"] = 1
+	local.player.flags["lastSetFov"] = 0
 	//local.player.flags["coop_activeWeapon"] = "NONE"
+	
+	//print a message to the player so they know they can use fov
+	thread playerInform local.player
 	
 	//[203] chrissstrahl - start fov detection only if there is no more data in name
 	if(!(waitthread coop_mod/main.scr::containsText local.player.netname " ," 0)){
 		local.player.flags["coopFovIsResetting"] = 1
 		local.player stufftext ( "vstr g_m2l1" )
 	}
+}end
+
+//IT IS CHRISTMAS! GOOD TIMES TO YOU WHEN EVER YOU ARE READING THIS!
+//=========================================================================
+playerInform local.player:{
+//=========================================================================
+	wait 4
+	
+	if(!local.player){ end }
+	//do not print if player has already fov working
+	//but print to player console in case player is looking for it how it works again
+	if(local.player.flags["coop_fov"] != NIL) {
+		local.player stufftext("echo --------------\n");
+		local.player stufftext("echo "+level.infoFovMessageEcho1+"\n");
+		local.player stufftext("echo "+level.infoFovMessageEcho2+"\n");
+		local.player stufftext("echo "+level.infoFovMessageEcho3+"\n");
+		local.player stufftext("echo "+level.infoFovMessageEcho4+"\n");
+		local.player stufftext("echo --------------\n");
+		end
+	}
+	local.player iprint level.infoFovMessage1 0
+	
+	wait 0.1
+	if(!local.player){ end }
+	local.player iprint level.infoFovMessage2 1
+	
+	wait 0.1
+	if(!local.player){ end }
+	local.player iprint level.infoFovMessage3 1
 }end
 
 //IF PLAYER IS A VOYEUR
@@ -201,7 +235,7 @@ manageNamechange local.player:{
 		local.datasize = 8
 		local.maxcharsize = (31 - local.datasize)//31=maxchars in name, 8=chars for key+command
 		if(local.playerNetnameFull.size > (31 - local.datasize)){ //length is " ,1data"
-			local.player iprint ("Your Name is to long ("+local.playerNetnameFull.size+") for commands to work ("+local.maxcharsize+")...") 1
+			local.player iprint (level.infoFovMessageName1+" ("+local.playerNetnameFull.size+") "+level.infoFovMessageName2+" ("+local.maxcharsize+")...") 1
 		}
 	}
 	
@@ -351,9 +385,8 @@ manageFovSet local.player local.fov:{
 //=========================================================================
 	//[202] chrissstrahl - don't accept bad range
 	if(local.fov == NIL){
-		//local.player.flags["coopFovIsResetting"] = 1
-		//local.player stufftext ( "vstr g_m2l1" )
-		thread playerSetup local.player
+		local.player.flags["coopFovIsResetting"] = 1
+		local.player stufftext ( "vstr g_m2l1" )
 		end
 	}
 	if(int(local.fov) < 10){
@@ -381,6 +414,12 @@ manageFovSet local.player local.fov:{
 	if(local.player){ local.player fov local.fov }
 	waitthread fov_mod/main.scr::changeGameType 2 0
 	setcvar "developer" local.prevCvar
+	
+	if(!local.player){ end }
+	if(local.player.flags["lastSetFov"] != local.fov){
+		local.player.flags["lastSetFov"] = local.fov
+		local.player iprint (level.infoFovMessageChanged+""+local.fov) 0
+	}
 }end
 
 //[200] Smithy - changeGameType hack
@@ -393,11 +432,6 @@ manageFovSet local.player local.fov:{
 changeGameType local.gType local.wait:{
 //=========================================================================
 	if (level.gametype == 0){ end }
-
-	local.prevThreadName 	= parm.previousthread.threadName
-	if (local.prevThreadName == NIL){
-		local.prevThreadName = "unknown location"
-	}
 
 	//just in case we don't want any further gametype changes (e.g. map load)
 	if (level.coop_preventGameTypeChanges){
