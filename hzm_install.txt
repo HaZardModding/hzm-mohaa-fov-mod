@@ -1,0 +1,71 @@
+__Version___1.00__________________________
+HaZardModding Fiel of View Mod for Medal of Honor Allied Assault War Chest
+
+__WHAT THIS IS____________________________
+This Modification enables the usage of a custom Field of View to
+allow fixing of screen scretching effects caused by variouse
+screen resolutions.
+This is a server side driven Mod with client side Menus.
+
+__LEGAL___________________________________
+By opening this package, installing, modifying and/or using
+contents of this custom-built product, you accept the terms
+of our License stated in legal.txt
+
+__YOU NEED________________________________
+Medal of Honor Allied Assault War Chest Edition available
+on gog.com. Other versions have not been tested, and could
+cause issues.
+
+__KNOWN ISSUES____________________________
+Known issues we could not fix...
+1. Using the restart command breaks the scripts
+2. You need to install/applay a Master server Fix to see Gameservers
+
+__MASTER SERVER FIX_______________________
+To see server inside the Game its Server-Browser you need to
+install/applay a Master Server Fix or Patch.
+Our Suggestions:
+http://mohreborn.com
+https://www.x-null.net/forums/threads/2159-Medal-of-Honor-Game-Server-Browser-Fixer
+
+__HOW TO INSTALL__________________________
+As player copy z_hzm_fov_mod_client.pk3 file as is, without
+extracting it contents into the /maintt/ folder of your
+Medal of Honor Warchest Installation.
+Remove z_hzm_fov_mod_client.pk3 to un-install.
+
+As Host or Server Admin, copy z_hzm_fov_mod_client.pk3
+file z_hzm_fov_mod_server.pk3 to the /maintt/ folder. 
+Remove z_hzm_fov_mod_server.pk3 to un-install.
+
+__HOW TO USE____________________________
+While in game on a server go to the Video Options Menu
+and select at Coop Fov your desired fov.
+To change your FOV without the menu, join in from
+Spectator and type into the console: append name ,199
+This will change your FOV to 99, use any other value
+at the place of 99 to use a different FOV.
+Range is 80 to 140
+
+__HOW TO OPEN CONSOLE_____________________
+The Key to access the console depends on your Keyboard Layout and
+Language. Please try the following Keys while you are in the main
+Menu of the game: ^ , °, ², ³, @, <, ~ or '
+
+__SUPPORT BY HAZARDMODDING________________
+Please do not contact Electronic Arts or any of their associates
+for support, if you are having troubles with our Coop Mod. You are
+meant to contact us, the developers of this Mod, as it is our
+Mod and this is not a official release by Electronic Arts or their
+associates.
+
+__CONTACT US______________________________
+Join us on Discord if you need help or want to find people to play:
+https://discord.gg/ZyNmsMX
+Message us on ModDB:
+https://www.moddb.com/messages/compose?to=groupsgroup776
+Message us on Facebook:
+https://www.facebook.com/HaZardModding
+On Twitter:
+https://twitter.com/HaModding
