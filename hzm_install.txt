@@ -6,6 +6,16 @@ This Modification enables the usage of a custom Field of View to
 allow fixing of screen scretching effects caused by variouse
 screen resolutions.
 This is a server side driven Mod with client side Menus.
+Compatible with the HaZardModding Coop Mod.
+
+__CREDITS_________________________________
+This Mod was created by Chrissstrahl
+Based on code of the open source HaZardModding Coop Mod
+Primairly code sources from developers:
+Chrissstrahl
+Smithy
+Thanks to BathySalts who inspired this standalone version
+to be created, as well as testing the Mod!
 
 __LEGAL___________________________________
 By opening this package, installing, modifying and/or using
