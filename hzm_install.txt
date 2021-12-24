@@ -3,8 +3,8 @@ HaZardModding Fiel of View Mod for Medal of Honor Allied Assault War Chest
 
 __WHAT THIS IS____________________________
 This Modification enables the usage of a custom Field of View to
-allow fixing of screen scretching effects caused by variouse
-screen resolutions.
+allow fixing of screen stretching effects caused by various
+screen resolutions. It also allows to set custom screen resolutions.
 This is a server side driven Mod with client side Menus.
 Compatible with the HaZardModding Coop Mod.
 
