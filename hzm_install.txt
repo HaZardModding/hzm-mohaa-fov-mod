@@ -1,5 +1,5 @@
 __Version___1.00__________________________
-HaZardModding Fiel of View Mod for Medal of Honor Allied Assault War Chest
+HaZardModding Field of View Mod for Medal of Honor Allied Assault War Chest
 
 __WHAT THIS IS____________________________
 This Modification enables the usage of a custom Field of View to
