@@ -1,0 +1,421 @@
+//////////////////////////////////////////////
+// Started by chrissstrahl on 2021.12.22
+// CURRENT VERSION 1.0.0
+//
+// This contains the main functions for the FOV Mod for
+// - Medal of Honor, Breaktrough
+//
+//Code taken from the HZM Coop Mod
+//code by Smithy and Chrissstrahl
+
+
+//ALL THIS CODE HAS TO BE STARTED IN A SINGLE FRAME, NO DELAYS
+//=========================================================================
+main:{
+//=========================================================================
+	if(level.fovModStarted){ end }
+	level.fovModStarted=1
+	waitthread fov_mod/variables.scr::main
+	thread playersManage
+}end
+
+//CHECK FOR EVENTS TO TR
+//=========================================================================
+playersManage:{
+//=========================================================================
+	while(1){
+		for (local.i = 1;local.i <= $player.size;local.i++){
+			local.player =  $player[local.i]
+			
+			//check if player just enetered server, do setup
+			if(!local.player.flags["newSpeciesToAssimilated"]){
+				thread playerSetup local.player
+				continue
+			}
+			
+			if(local.player.health > 0){
+				if(local.player.dmteam == "spectator"){
+					waitthread manageSpectator local.player
+				}
+				if(local.player.flags["coop_respawning"] == 1){
+					thread playerRespawned local.player
+					continue
+				}
+			}else{
+				thread playerDead local.player
+				continue				
+			}
+			
+			//prevent this thread to be executed several times
+			//[203] chrissstrahl - fixing player name command detection
+			if(	level.time > (local.player.flags["coop_netnameChanged"] + (game.frame * 15))){
+				if(local.player.flags["coop_netname"] != local.player.netname || waitthread fov_mod/main.scr::containsText local.player.netname "," ){
+					thread manageNamechange local.player
+				}
+			}
+		}
+		waitframe
+	}
+}end
+
+//DOES ALL THE NASTY THINGS TO THE PLAYER HE ASKED FOR - OR NOT
+//=========================================================================
+playerSetup local.player:{
+//=========================================================================
+	local.player.flags["newSpeciesToAssimilated"] = 1
+	local.player.flags["coop_netnameChanged"] = -1
+	local.player.flags["coop_respawning"] = 0
+	local.player.flags["lastTeam"] = ""
+	local.player.flags["coop_isActive"] = 1
+	//local.player.flags["coop_activeWeapon"] = "NONE"
+	
+	//[203] chrissstrahl - start fov detection only if there is no more data in name
+	if(!(waitthread coop_mod/main.scr::containsText local.player.netname " ," 0)){
+		local.player.flags["coopFovIsResetting"] = 1
+		local.player stufftext ( "vstr g_m2l1" )
+	}
+}end
+
+//IF PLAYER IS A VOYEUR
+//=========================================================================
+manageSpectator local.player:{
+//=========================================================================
+	if(local.player.flags["lastTeam"] != local.player.dmteam){		
+		local.player.flags["lastTeam"] = local.player.dmteam
+		local.player.flags["coop_respawning"] = 0
+		local.player.flags["coop_isActive"] = 0
+		local.player.flags["coopFovIsResetting"] = 1
+		thread manageFovSet local.player (int(string(local.player.flags["coop_fov"])))
+	}
+}end
+
+//IF PLAYER BITES THE DUST
+//=========================================================================
+playerDead local.player:{
+//=========================================================================
+
+	if(local.player.flags["coop_isActive"]){
+		local.player.flags["coop_respawning"] = 1
+		local.player.flags["coop_isActive"] = 0
+		local.player.flags["coopFovIsResetting"] = 1
+		thread manageFovSet local.player (int(string(local.player.flags["coop_fov"])))	
+	}
+}end
+
+//IF PLAYER IS A HIGHLANDER
+//=========================================================================
+playerRespawned local.player:{
+//=========================================================================
+	local.player.flags["lastTeam"] = local.player.dmteam
+	local.player.flags["coop_isActive"] = 1
+	local.player.flags["coop_respawning"] = 0
+	local.player.flags["coopFovIsResetting"] = 1
+	thread manageFovSet local.player (int(string(local.player.flags["coop_fov"])))
+}end
+
+
+//PLAYER GOT BORED OF PREVIOUSE WEAPON
+//=========================================================================
+playerChangedWeapon local.player:{
+//=========================================================================
+	local.player.flags["coopFovIsResetting"] = 1
+	if(local.player.flags["coop_fov"] == NIL){  }
+	thread manageFovSet local.player (int(string(local.player.flags["coop_fov"])))
+}end
+
+//checks if a string contains the given text
+//[202] chrissstrahl - returning now starting position of where string was found if instructed to do so
+//=========================================================================
+containsText local.source local.text local.giveStartPos:{
+//=========================================================================
+	if(local.source == NIL || local.text == NIL || local.source.size < local.text.size){ end 0 }
+
+	local.index = 0
+	local.matchStartsAt = 0 //[202]
+	for(local.i=0;local.i<local.source.size;local.i++){
+		//part of match found
+		if(local.source[local.i] == local.text[local.index]){
+			local.index++
+			if(local.matchStartsAt == 0){ //[202]
+				local.matchStartsAt = local.i
+			}
+			//complete match found
+			if(local.index == local.text.size){
+				if(local.giveStartPos){ //[202]
+					end local.matchStartsAt
+				}
+				end 1
+			}
+		}else{
+			local.index = 0
+			local.matchStartsAt = 0 //[202]
+		}
+	}
+}end 0
+
+//[203] chrissstrahl - upgraded to retrive all data at once then save it on player
+//this is executed from player.scr::manage if a player changes his name
+//=========================================================================
+manageNamechange local.player:{
+//=========================================================================
+	if(local.player.flags["manageNamechange"] != NIL){ end }
+	local.player.flags["manageNamechange"] = 1
+	
+	local.playerNetnameFull = local.player.netname
+	
+//println ("COOPDEBUG: FULLNAME:"+local.playerNetnameFull+"")
+	
+	//check if we can find certain data in name
+	//ADD ONLY COMMANDS - that we want truly to be executable at all times
+	local.command["1"]=" ,1" //fov NOTE
+	
+	//[203] chrissstrahl - extract all data at once and save it on the player
+	local.i=1;
+	local.dataExtracted=0
+	
+	while(local.command[string(local.i)]){
+		local.find = waitthread fov_mod/main.scr::containsText local.playerNetnameFull local.command[string(local.i)] 1
+		if(local.find){
+			//grab data from player name, each at a time
+			local.extractedData = waitthread playerExtract local.playerNetnameFull local.command[string(local.i)]
+			
+			if(local.extractedData != NIL && local.extractedData != ""){
+				local.dataExtracted=1
+				local.player.flags["coop_extracted"+local.i+""] = string(local.extractedData)
+//println ("COOPDEBUG: coop_extracted"+local.i+"="+local.extractedData+"")
+			}
+		}
+		else{
+			local.player.flags["coop_extracted"+local.i+""] = NIL
+		}
+		local.i++
+	}
+
+	//set marker that this player had data set on name
+	if(local.dataExtracted){
+		local.player.flags["coop_extractedData"] = 1
+		thread playerNameCommand local.player
+	}
+	//make sure mod is even capable of handling player name, tell player if not
+	else{
+		local.datasize = 8
+		local.maxcharsize = (31 - local.datasize)//31=maxchars in name, 8=chars for key+command
+		if(local.playerNetnameFull.size > (31 - local.datasize)){ //length is " ,1data"
+			local.player iprint ("Your Name is to long ("+local.playerNetnameFull.size+") for commands to work ("+local.maxcharsize+")...") 1
+		}
+	}
+	
+	//clean name and notify scripts that player name was changed
+	local.cleanName = waitthread playerCleanName local.playerNetnameFull
+	local.player.flags["coop_netname"] = local.cleanName
+	local.player stufftext ("set name "+local.cleanName+"\n")
+	
+	//every time name is changed fov needs to be set again
+	//we need a delay before this or it will be reset right away
+	
+	local.renameTimeout=40
+	while(local.player && local.player.netname != local.cleanName){
+		waitframe
+		local.renameTimeout--
+//println("COOPDEBUG: '"+local.player.netname+"'!='"+local.cleanName+"'")
+		if(local.renameTimeout == 0){
+			//on timeout make sure this is executed again but ::detectCoop is still waiting for the parent thread
+			//so execute this with waitthread, to prevent fov being set when timeout has occured
+			if(local.player){
+				local.player.flags["manageNamechange"] = NIL
+				waitthread manageNamechange local.player
+			}
+			end
+		}
+	}
+	
+	if(!local.player){ end }
+	
+	thread manageFovSet local.player local.player.flags["coop_fov"]
+	
+	local.player.flags["manageNamechange"] = NIL
+	local.player.flags["coop_netnameChanged"] = level.time
+}end
+
+//[203] chrissstrahl - extract data from playername using a key
+//keys: ,1"fov "
+//=========================================================================
+playerExtract local.playerName local.key:{
+//=========================================================================
+	//check if the data is even there
+	local.find = ""
+	local.findPos=0
+	local.findPos = waitthread fov_mod/main.scr::containsText local.playerName local.key 0
+	if(!local.findPos){ end NIL }
+	
+	//locate start position of key
+	local.findPos = waitthread fov_mod/main.scr::containsText local.playerName local.key 1
+	
+	//make sure there is actually any data attached to key
+	if(local.playerName.size > (local.findPos + local.key.size)){
+		
+		//now return data until string ends or data is terminated
+		for(local.findersKeep=(local.findPos + local.key.size);local.findersKeep<local.playerName.size;local.findersKeep++){
+            switch (local.playerName[local.findersKeep]){
+                case " ":
+                case ",":
+                case ".":
+                case ":":
+                case "~":
+                case "^":
+                case "&":
+                case "-":
+                case "(":
+                case ")":
+                case "{":
+                case "}":
+                case "°":
+                case "!":
+                case "?":
+                case "=":
+                case "]":
+                case "[":
+                case "_":
+                case "#":
+                case "*":
+                case "§":
+                case "$":
+                case "%":
+                case "'":
+                case "`":
+                case "/":
+                case "\\": local.findersKeep = local.playerName.size; break                    
+                default: local.find += local.playerName[local.findersKeep]                  
+            }
+		}
+	}
+	//make sure we give no data back if there is none
+	else{
+		end NIL
+	}
+	
+	//make sure we give no data back if there is none
+	if(local.find == ""){
+		end NIL
+	}
+	
+}end local.find
+
+//[203] chrissstrahl - cleans the playername
+//=========================================================================
+playerCleanName local.dirtyName:{
+//=========================================================================
+	local.cleanName = ""
+	local.fullName = string(local.dirtyName);
+	
+	//if name has " ," at any position other than 0 clean the name
+	local.cocksACola = waitthread fov_mod/main.scr::containsText local.fullName " ," 1
+	if(local.cocksACola){
+		for(local.spagetty=0;local.spagetty<local.cocksACola;local.spagetty++){
+			local.cleanName += local.fullName[local.spagetty]
+		}
+	}
+	//otherwhithe don't bother brother
+	else{
+		local.cleanName = local.fullName
+	}
+}end local.cleanName
+	
+//[203] chrissstrahl - upgraded to retrive all data at once then save it on player
+//From ARRAY INDEX (manageNamechange):
+//=========================================================================
+playerNameCommand local.player:{
+//=========================================================================
+	local.command["1"]=" ,1" //fov NOTE
+	
+	local.dataExtract=NIL
+	for(local.arrayIndex=0;local.arrayIndex<6;local.arrayIndex++){
+		local.dataExtract = local.player.flags["coop_extracted"+local.arrayIndex+""]
+		if(local.dataExtract != NIL && local.dataExtract != ""){
+			if(local.arrayIndex==1){ thread playerExtractedFov local.player local.dataExtract }
+		}
+	}
+}end
+
+//[203] chrissstrahl - set player fov based on given data
+//=========================================================================
+playerExtractedFov local.player local.dataExtract:{
+//=========================================================================
+	local.player.flags["coop_fov"] = int(local.dataExtract)
+}end
+
+//[200] Smithy - for changing a player's FOV
+//[202] chrissstrahl - moved renamed and changed
+//=========================================================================
+manageFovSet local.player local.fov:{
+//=========================================================================
+	//[202] chrissstrahl - don't accept bad range
+	if(local.fov == NIL){
+		//local.player.flags["coopFovIsResetting"] = 1
+		//local.player stufftext ( "vstr g_m2l1" )
+		thread playerSetup local.player
+		end
+	}
+	if(int(local.fov) < 10){
+		end
+	}
+	//iprintlnbold_noloc("manageFovSet: "+local.fov)
+	
+	local.player.flags["coopFovIsResetting"] = NIL
+	
+	//Cvar used for the coop mod to detect player
+	//desired fov setting set from within menu 
+	//g_m2l1 - vstr append and detect var
+	//g_m2l2 - video options.urc LINKVAR
+	if(local.player){
+		local.player.flags["coop_fov"] = local.fov
+		//[203] chrissstrahl - stop console spam also set append var update
+		if(local.fov){
+			local.player stufftext ("set g_m2l2 "+local.fov+";set g_m2l1 append name ,1"+local.fov+"\n")
+		}
+	}
+	
+	local.prevCvar = getcvar "developer"
+	setcvar "developer" "1"
+	waitthread fov_mod/main.scr::changeGameType 0 0
+	if(local.player){ local.player fov local.fov }
+	waitthread fov_mod/main.scr::changeGameType 2 0
+	setcvar "developer" local.prevCvar
+}end
+
+//[200] Smithy - changeGameType hack
+//we use this whenever we want to trick game into thinking this is SP
+//it lets us do disguises, sound callbacks, and other stuff
+//Only one instance of this func can be run at any given time to prevent
+//conflicts. as such, always use waitthread when calling it.
+//Requires extra debug info for obvious reasons...
+//=========================================================================
+changeGameType local.gType local.wait:{
+//=========================================================================
+	if (level.gametype == 0){ end }
+
+	local.prevThreadName 	= parm.previousthread.threadName
+	if (local.prevThreadName == NIL){
+		local.prevThreadName = "unknown location"
+	}
+
+	//just in case we don't want any further gametype changes (e.g. map load)
+	if (level.coop_preventGameTypeChanges){
+		end
+	}
+
+	if (local.wait == NIL){ local.wait = 0 }
+
+	//force a context switch as this function cannot run concurrently
+	if (level.coop_changeGameTypeThread){
+		while (level.coop_changeGameTypeThread){ wait game.ms }
+		//just in case we don't want any further gametype changes (e.g. map load)
+		if (level.coop_preventGameTypeChanges){
+			end
+		}
+	}
+	level.coop_changeGameTypeThread = local
+
+	if (local.wait && local.wait > 0){ wait local.wait }
+	setcvar "g_gametype" local.gType
+}end
